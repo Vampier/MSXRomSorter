@@ -377,6 +377,18 @@ def lowercaseExtentions(directory):
 			new_filename = name + lowercase_ext
 			if filename!=new_filename:
 				os.rename(filepath, os.path.join(directory, new_filename))
+	
+def removeDualHashFileNames(directory):
+	for root, dirs, files in os.walk(directory):
+		for file in files:
+			file_path = os.path.join(root, file)
+			if len(file) >= 82:
+				prefix = file[:40]
+				suffix = file[42:82]
+				if prefix == suffix:
+					new_name = os.path.join(root, file[42:])
+					os.rename(file_path, new_name)
+					print(f"Renamed {file_path} to {file[42:]}")
 
 ### main ###################################
 # Set the directory you want to start from #
@@ -395,6 +407,9 @@ MSX2ZipOut = './perfsorted/ZIP/MSX/'
 
 url = "http://romdb.vampier.net/convertdb.php"
 databasename= 'RomDB.db'
+
+# Create SQLLite3 database from URL
+importSQLite3(url,databasename)
 
 # Define extensions to remove
 BadFiles = ['mp3','txt','dsk','mia','sys','m3u','vgz','asm','ips','xml','url','ini','ldr','txt','jpg', 'gif', 'png', 'jpeg', 'html', 'dsk', 'bas', 'sc5', 'sc8', 'bat', 'obj', 'vrm', 'com', 'cfg', 'mp4', 'mov', 'pdf', '32x', 'cas']
@@ -431,7 +446,6 @@ def CreatePrefSortedFiles():
 	zipFilesInDir(MSXZipIn, MSXZipOut)
 	zipFilesInDir(MSX2ZipIn, MSX2ZipOut)
 
-
 def CreateMenu():
 	print("-"*30)
 	print("RomSorter Menu")
@@ -443,9 +457,6 @@ def CreateMenu():
 
 
 def main():
-
-	# Create SQLLite3 database from URL
-	importSQLite3(url,databasename)
 
 	# Create directories if they don't exist
 	createDir(sortedDir)
@@ -468,12 +479,15 @@ def main():
 	cleanDirectory(NotFoundDir, BadFiles)
 	cleanDirectory(unsorterDir, BadFiles)
 
+	# Remove dual hashes from the filename (accidentally sorted more than once)
+	removeDualHashFileNames(NotFoundDir)
+
 	# Menu Loop
 	while True:
 		CreateMenu()
 		choice = input("Enter your choice: ")
 		if choice == "1":
-			print("-- Scanning For New Roms")
+			print("-- Scan For New Roms")
 			ScanDirForNewRoms()
 		elif choice == "2":
 			print("-- Creating Prefered ZIP Files")
