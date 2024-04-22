@@ -17,37 +17,31 @@ import requests
 # Windows: pip install py7zr
 # Debian:  apt install python3-py7zr
 
-def importSQLite3(url,databasename):
+def importSQLite3(url, databasename):
 	# Download the RomDBDump.sql file
 	response = requests.get(url)
 
-	deleteFile(databasename)
-
 	# Check if the request was successful
 	if response.status_code == 200:
-		# Write the contents of the response to a file
-		with open('RomDBDump.sql', 'wb') as f:
-			f.write(response.content)
-		print('File downloaded successfully.')
+		
+		# Delete previous database
+		deleteFile(databasename)
 
 		# Connect to SQLite3 database
 		conn = sqlite3.connect(databasename)
 		cursor = conn.cursor()
 
 		# Execute the SQL dump to create the RomDB.db database
-		with open('RomDBDump.sql', 'r') as sql_file:
-			sql_script = sql_file.read()
-			cursor.executescript(sql_script)
+		sql_script = response.text
+		cursor.executescript(sql_script)
 
 		# Commit changes and close connection
 		conn.commit()
 		conn.close()
-		
-		deleteFile('RomDBDump.sql')
 
-		print('SQL dump imported into SQLite3 database.')
+		print('Database Updated.')
 	else:
-		print('Failed to download the file.')
+		print('Failed to create the database.')
 
 def cleanDirectory(root_dir, extentions):
 	for root, dirs, files in os.walk(root_dir):
@@ -397,12 +391,19 @@ MSX2ZipOut = './perfsorted/ZIP/MSX/'
 url = 'http://romdb.vampier.net/convertdb.php'
 databasename= 'RomDB.db'
 
+# Define extensions to remove
+BadFiles = ['mp3','txt','dsk','mia','sys','m3u','vgz','asm','ips','xml',
+			'url','ini','ldr','txt','jpg', 'gif', 'png', 'jpeg', 'html', 
+			'dsk', 'bas', 'sc5', 'sc8', 'bat', 'obj', 'vrm', 'com', 'cfg', 
+			'mp4', 'mov', 'pdf', '32x', 'cas']
+
+# Known ROM Types 
+ROMTypes  = ['*.ms1', '*.mx2', '*.mx1', '*.bin', 
+			 '*.msx2', '*.dat', '*.gz', '*.col', 
+			 '*.eprom', '*.rom']
+
 # Create SQLLite3 database from URL
 importSQLite3(url,databasename)
-
-# Define extensions to remove
-BadFiles = ['mp3','txt','dsk','mia','sys','m3u','vgz','asm','ips','xml','url','ini','ldr','txt','jpg', 'gif', 'png', 'jpeg', 'html', 'dsk', 'bas', 'sc5', 'sc8', 'bat', 'obj', 'vrm', 'com', 'cfg', 'mp4', 'mov', 'pdf', '32x', 'cas']
-ROMTypes  = ['*.ms1', '*.mx2', '*.mx1', '*.bin', '*.msx2', '*.dat', '*.gz', '*.col', '*.eprom', '*.rom']
 
 # Open DB connection
 conn = sqlite3.connect(databasename)
