@@ -379,14 +379,14 @@ def removeDualHashFileNames(directory):
 
 #set Directory with ROMs
 
-unsorterDir = './unsorted/'
-NotFoundDir = './notfound/'
-sortedDir='./sorted/'
-PrefSorted ='./perfsorted/'
-MSXZipIn = './perfsorted/MSX2/'
-MSXZipOut = './perfsorted/ZIP/MSX2/'
-MSX2ZipIn = './perfsorted/MSX/'
-MSX2ZipOut = './perfsorted/ZIP/MSX/'
+unsorterDir = os.path.abspath('./unsorted/')
+NotFoundDir = os.path.abspath('./notfound/')
+sortedDir= os.path.abspath('./sorted/')
+PrefSorted = os.path.abspath('./perfsorted/')
+MSXZipIn = os.path.abspath('./perfsorted/MSX2/')
+MSXZipOut = os.path.abspath('./perfsorted/ZIP/MSX2/')
+MSX2ZipIn = os.path.abspath('./perfsorted/MSX/')
+MSX2ZipOut = os.path.abspath('./perfsorted/ZIP/MSX/')
 
 url = 'http://romdb.vampier.net/convertdb.php'
 databasename= 'RomDB.db'
@@ -441,7 +441,7 @@ def CreateMenu():
 	print('RomSorter Menu')
 	print('-'*30)
 	print('[1] Scanning For New Roms')
-	print('[2] Create Prefered ZIP Files')
+	print('[2] Create Preferred ZIP Files')
 	print('[3] Exit')
 	print('-'*30)
 
@@ -480,7 +480,7 @@ def main():
 			print('-- Scan For New Roms')
 			ScanDirForNewRoms()
 		elif choice == '2':
-			print('-- Creating Prefered ZIP Files')
+			print('-- Creating Preferred ZIP Files')
 			CreatePrefSortedFiles()
 		elif choice == '3':
 			print('Exiting...')
