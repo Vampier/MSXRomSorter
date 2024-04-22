@@ -39,7 +39,7 @@ Depending on what files you put in there the directory that can be created looks
 - sorted (Sort results)
   - BadDump (known bad dumps)
   - ColecoVision (Limited Colecovision support)
-  - Confidential (ROMs that are still for sale or never have been publically released)
+  - Confidential (ROMs that are still for sale or never have been publicly released)
     - BadDump
     - MSX
     - MSX2
@@ -62,4 +62,4 @@ A new directory will be created:
     - MSX  (MSX ROM ZIPs sorted per starting letter)
     - MSX2  (MSX2 ROM ZIPs sorted per per starting letter)
    
-The ZIP files have been created with `level 0` compression - this means that the MSX can just unpack the file with minimal CPU usage and thus loading proceduretimes will be reduced.
+The ZIP files have been created with `level 0` compression - this means that the MSX can just unpack the file with minimal CPU usage and thus loading procedure times will be reduced.
