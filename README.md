@@ -6,6 +6,7 @@ This ROM Sorter will be able to sort all known ROMs into their respective folder
 Non Standard Dependencies: 
 - SQLite3 https://sqlite.org/ (for SQLite3 database support)
 - py7zr `pip install py7zr` or `apt install python3-py7zr`
+- Requests `pip install requests`
 
 Upon 1st run this script will create 3 directories:
 - unsorted
