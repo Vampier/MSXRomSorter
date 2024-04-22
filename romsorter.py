@@ -12,9 +12,13 @@ import py7zr
 import shutil
 import requests
 
+# Dependencies
+
+# Windows: pip install py7zr
+# Debian:  apt install python3-py7zr,sqlite3
+
 def importSQLite3(url,databasename):
 	# Download the RomDBDump.sql file
-	#url = "http://romdb.vampier.net/convertdb.php"
 	response = requests.get(url)
 
 	deleteFile(databasename)
@@ -38,6 +42,9 @@ def importSQLite3(url,databasename):
 		# Commit changes and close connection
 		conn.commit()
 		conn.close()
+		
+		deleteFile("RomDBDump.sql")
+
 		print("SQL dump imported into SQLite3 database.")
 	else:
 		print("Failed to download the file.")
@@ -77,7 +84,10 @@ def createDir(dirname):
 		os.makedirs(dirname)
 
 def deleteFile(filename):
-	os.remove(filename)
+    if os.path.exists(filename):
+        os.remove(filename)
+    else:
+        print(f"Warning: File '{filename}' does not exist.")
 
 def getRomInfo(sha1value):
 	global platform
@@ -113,9 +123,6 @@ def getRomInfo(sha1value):
 
 	return fname
 
-#
-# Prefered Handeling 
-#
 def getPrefRomInfo(sha1value):
 	global platform
 
@@ -181,9 +188,6 @@ def ScanPrefDir(rootDir):
 			for filename in fnmatch.filter(fileList, extension):
 				handlePrefFiles(dirName,filename)
 
-
-
-
 # Zip the files from given directory that matches the filter
 def zipFilesInDir(root_dir, output_dir):
 	for root, dirs, _ in os.walk(root_dir):
@@ -198,30 +202,17 @@ def zipFilesInDir(root_dir, output_dir):
 						file_path = os.path.join(subdir_path, file)
 						zipf.write(file_path, arcname=file)
 
-#
-# End pref handeling
-#
-
-
 def makeFSSafe(strFormat):
 	strFormat = strFormat.strip()
 
 	replacements = {
-		u"\u00f8": "o",
-		u"\u00e9": "e",
-		u"\u00e1": "a",
-		u"\u02bc": "",
-		u"\u00f1": "",
-		u"\u00ca": "E",
-		"?": "",
-		"/": "-",
-		":": "",
-		"\r": "",
-		"\n": "",
-		"\t": "",
-		"[[": "[",
-		"]]": "]",
-		"'": ""
+        'Ù': 'U', 'Ú': 'U', 'Û': 'U', 'Ü': 'U', 'Ý': 'Y', 'Þ': 'TH', 'ß': 'ss',
+        'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a', 'æ': 'ae', 
+        'ç': 'c', 'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e', 'ì': 'i', 'í': 'i', 
+        'î': 'i', 'ï': 'i', 'ð': 'd', 'ñ': 'n', 'ò': 'o', 'ó': 'o', 'ô': 'o', 
+        'õ': 'o', 'ö': 'o', 'ø': 'o', 'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u', 
+        'ý': 'y', 'þ': 'th', 'ÿ': 'y','?': "", "/": "-", ":": "", "\r": "", 
+		"\n": "", "\t": "", "[[": "[", "]]": "]", "'": ""
 	}
 
 	for old_char, new_char in replacements.items():
@@ -339,8 +330,6 @@ def ExtractArchive(ArchiveName, DestDir, archive_type):
 		archive.extractall(path=DestDir)
 	deleteFile(ArchiveName)
 
-
-#Sort ROMS
 def ScanDir(rootDir,scantype):
 	for dirName, subdirList, fileList in os.walk( rootDir ):
 		for extension in ( tuple(ROMTypes) ):
