@@ -3,11 +3,11 @@ MSX ROM Sorter
 
 This ROM Sorter will be able to sort all known ROMs into their respective folders. The Sorter will also remove all unwanted files (see code) that are not associated with ROMs.
 
-To run on windows make sure to remove the 1st line `#!/usr/bin/env -S python3`
+This script uses Python - Download python for free on https://www.python.org/downloads/ 
 
 Non Standard Dependencies: 
 - SQLite3 https://sqlite.org/ (for SQLite3 database support)
-- py7zr `pip install py7zr` or `apt install python3-py7zr`
+- py7zr `pip install py7zr` (Windows) or `apt install python3-py7zr` (Linux)
 - Requests `pip install requests`
 
 Upon 1st run this script will create 3 directories:
