@@ -1,4 +1,4 @@
-# MSXRomSorter (doesn't run on windows yet)
+# MSXRomSorter
 MSX ROM Sorter
 
 This ROM Sorter will be able to sort all known ROMs into their respective folders. The Sorter will also remove all unwanted files (see code) that are not associated with ROMs.
@@ -19,9 +19,10 @@ A database file is downloaded as well
 
 # Running the script
 
-run the script by typing `python3 romsorter.py` 
+- Windows run the script by typing `python romsorter.py`
+- Linux run with `python3 romsorter.py`
 
-If the script runs it will show a menu:
+If the script runs it will show this menu:
 
 ```
 ------------------------------
