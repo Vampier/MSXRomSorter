@@ -1,4 +1,4 @@
-# MSXRomSorter
+# MSXRomSorter (doesn't run on windows yet)
 MSX ROM Sorter
 
 This ROM Sorter will be able to sort all known ROMs into their respective folders. The Sorter will also remove all unwanted files (see code) that are not associated with ROMs.
