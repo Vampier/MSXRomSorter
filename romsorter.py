@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env -S python3
 
 import os
 import sys
@@ -97,10 +97,15 @@ def getRomInfo(sha1value):
 	Remark = formatname(row[5]) if row[5] is not None else ''
 	Meta = formatname(row[6]) if row[6] is not None else ''
 	platform = row[7] if row[7] is not None else ''
+	
+	extention = '.rom'	
 
-	extention = '.col' if platform == 'ColecoVision' else '.rom'
-
-	platform = '/Confidential/' + platform if row[9] == 'on' else ''
+	if platform == 'ColecoVision':
+		extention = '.col'
+	
+	if row[9] == 'on':		
+		platform = '/Confidential/' + platform
+	
 	GameName = 'Restest-' + GameName if row[10] > 0 else GameName
 
 	fname = f"{GameName} - {row3} ({row1}) {row4} {Remark} {Meta} [{row[8]}]{extention}"
@@ -143,8 +148,7 @@ def getPrefRomInfo(sha1value):
 	platform = row[7] if row[7] else ''
 	RomMapper = row[10] if row[10] else ''
 
-	extention = '.col' if row[7] == 'ColecoVision' else '.rom'
-	platform = f'/Confidential/{platform}' if row[9] == 'on' else platform
+	extention = '.rom'
 	
 	fname = f"{GameName} - {row3} [{RomMapper}] {Remark} {Meta}{extention}"
 	fname = re.sub(' +', ' ', fname)
@@ -268,47 +272,45 @@ def dedupeDirectory(directory):
 
 
 def handlefiles(dirname, fname, scantype):
-	global platform
-	
-	fromfile = os.path.join(dirname, fname)
+    global platform
 
-	try:
-		if fname[-3:].upper() != ".PY":
-			hash_value = sha1value(fromfile).upper()
-			newfilename = getRomInfo(hash_value)
-				
-			if scantype == "scan":
-				if newfilename == "NotFound":
-					return
-				
-				topath = os.path.abspath("./perfsorted/" + platform + "/")
-				toDir = os.path.join(topath, newfilename[0].upper())
-				tofile = os.path.join(toDir, newfilename)
-				
-				print("Sorting for ZIP: {} copy to {}".format(fromfile, tofile))
-				createDir(toDir)
-				shutil.copyfile(fromfile, tofile)
-				
-			elif scantype == "sort":
-				if newfilename == "NotFound":
-					if not dirname.startswith('./notfound'):
-						tofile = os.path.abspath('./notfound/') + f'/{hash_value}__{fname}'
-						print("NotFound: {} to {}".format(fromfile, tofile))
-						shutil.copyfile(fromfile, tofile)
-						os.remove(fromfile)
-					return
-				
-				topath = os.path.abspath("sorted/" + platform + "/")
-				tofile = os.path.join(topath, newfilename)
+    # Check if the file extension is ".py"; if it is, skip processing
+    if fname[-3:].upper() == ".PY":
+        return
 
-				createDir(topath)
-				
-				print("found: {} >> {}".format(fromfile, tofile))
-				shutil.copyfile(fromfile, tofile)
-				os.remove(fromfile)
-				
-	except Exception as e:
-		print(e)
+    fromfile = os.path.join(dirname, fname)
+
+    try:
+        hash_value = sha1value(fromfile).upper()
+        newfilename = getRomInfo(hash_value)
+
+        if newfilename == "NotFound":
+            # Handle case where ROM information is not found
+            if scantype == "sort" and not dirname.startswith('./notfound'):
+                tofile = os.path.abspath('./notfound/') + f'/{hash_value}__{fname}'
+                print("NotFound: {} to {}".format(fromfile, tofile))
+                shutil.copyfile(fromfile, tofile)
+                os.remove(fromfile)
+            return
+
+        if scantype == "scan":
+            # Handle scanning operation
+            topath = os.path.abspath("./perfsorted/" + platform + "/")
+            toDir = os.path.join(topath, newfilename[0].upper())
+            tofile = os.path.join(toDir, newfilename)
+            print("Sorting for ZIP: {} copy to {}".format(fromfile, tofile))
+        elif scantype == "sort":
+            # Handle sorting operation
+            topath = os.path.abspath("sorted/" + platform + "/")
+            tofile = os.path.join(topath, newfilename)
+            print("found: {} >> {}".format(fromfile, tofile))
+
+        createDir(topath)
+        shutil.copyfile(fromfile, tofile)
+        os.remove(fromfile)
+
+    except Exception as e:
+        print(e)
 
 def ExtractArchives(rootDir):
 	for dirName, subdirList, fileList in os.walk(rootDir):
@@ -406,6 +408,7 @@ cur = conn.cursor()
 platform = ''
 
 def ScanDirForNewRoms():
+	global platform
 	# Scan driectoryies for roms
 	ScanDir(unsorterDir,'sort')
 	ScanDir(NotFoundDir,'sort')
@@ -485,6 +488,3 @@ def main():
 
 if __name__ == "__main__":
 	main()
-
-
-
