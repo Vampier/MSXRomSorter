@@ -15,7 +15,7 @@ import requests
 # Dependencies
 
 # Windows: pip install py7zr
-# Debian:  apt install python3-py7zr,sqlite3
+# Debian:  apt install python3-py7zr
 
 def importSQLite3(url,databasename):
 	# Download the RomDBDump.sql file
@@ -26,16 +26,16 @@ def importSQLite3(url,databasename):
 	# Check if the request was successful
 	if response.status_code == 200:
 		# Write the contents of the response to a file
-		with open("RomDBDump.sql", "wb") as f:
+		with open('RomDBDump.sql', 'wb') as f:
 			f.write(response.content)
-		print("File downloaded successfully.")
+		print('File downloaded successfully.')
 
 		# Connect to SQLite3 database
 		conn = sqlite3.connect(databasename)
 		cursor = conn.cursor()
 
 		# Execute the SQL dump to create the RomDB.db database
-		with open("RomDBDump.sql", "r") as sql_file:
+		with open('RomDBDump.sql', 'r') as sql_file:
 			sql_script = sql_file.read()
 			cursor.executescript(sql_script)
 
@@ -43,11 +43,11 @@ def importSQLite3(url,databasename):
 		conn.commit()
 		conn.close()
 		
-		deleteFile("RomDBDump.sql")
+		deleteFile('RomDBDump.sql')
 
-		print("SQL dump imported into SQLite3 database.")
+		print('SQL dump imported into SQLite3 database.')
 	else:
-		print("Failed to download the file.")
+		print('Failed to download the file.')
 
 def cleanDirectory(root_dir, extentions):
 	for root, dirs, files in os.walk(root_dir):
@@ -56,7 +56,7 @@ def cleanDirectory(root_dir, extentions):
 			file_path = os.path.join(root, file)
 			if file.lower().endswith(tuple(extentions)):
 				os.remove(file_path)
-				print(f"Removed file: {file_path}")
+				print(f'Removed file: {file_path}')
 
 		# Remove empty directories
 		for dir_name in dirs[:]:
@@ -64,10 +64,10 @@ def cleanDirectory(root_dir, extentions):
 			try:
 				if not os.listdir(dir_path):
 					os.rmdir(dir_path)
-					print(f"Removed empty directory: {root} - {dir_path}")
+					print(f'Removed empty directory: {root} - {dir_path}')
 					dirs.remove(dir_name)  # Remove directory from list to prevent further iteration
 			except Exception as e:
-				print(f"Error occurred while removing directory {dir_path}: {e}")
+				print(f'Error occurred while removing directory {dir_path}: {e}')
 
 		# Remove empty files
 		for file_name in files:
@@ -75,9 +75,9 @@ def cleanDirectory(root_dir, extentions):
 			try:
 				if os.path.getsize(file_path) == 0:
 					os.remove(file_path)
-					print(f"Removed empty file: {file_path}")
+					print(f'Removed empty file: {file_path}')
 			except Exception as e:
-				print(f"Error occurred while checking file size for {file_path}: {e}")
+				print(f'Error occurred while checking file size for {file_path}: {e}')
 
 def createDir(dirname):
 	if not os.path.exists(dirname):
@@ -87,7 +87,7 @@ def deleteFile(filename):
     if os.path.exists(filename):
         os.remove(filename)
     else:
-        print(f"Warning: File '{filename}' does not exist.")
+        print(f'Warning: File \'{filename}\' does not exist.')
 
 def getRomInfo(sha1value):
 	global platform
@@ -118,7 +118,7 @@ def getRomInfo(sha1value):
 	
 	GameName = 'Restest-' + GameName if row[10] > 0 else GameName
 
-	fname = f"{GameName} - {row3} ({row1}) {row4} {Remark} {Meta} [{row[8]}]{extention}"
+	fname = f'{GameName} - {row3} ({row1}) {row4} {Remark} {Meta} [{row[8]}]{extention}'
 	fname = re.sub(' +', ' ', fname)
 
 	return fname
@@ -157,7 +157,7 @@ def getPrefRomInfo(sha1value):
 
 	extention = '.rom'
 	
-	fname = f"{GameName} - {row3} [{RomMapper}] {Remark} {Meta}{extention}"
+	fname = f'{GameName} - {row3} [{RomMapper}] {Remark} {Meta}{extention}'
 	fname = re.sub(' +', ' ', fname)
 
 	return fname
@@ -166,19 +166,19 @@ def handlePrefFiles(dirname, fname):
 	global platform
 	
 	fromfile = os.path.join(dirname, fname)
-	if fname[-3:].upper() != ".PY":
+	if fname[-3:].upper() != '.PY':
 		hash_value = sha1value(fromfile).upper()
 		newfilename = getPrefRomInfo(hash_value)
 		
-		if newfilename == "NotFound":
+		if newfilename == 'NotFound':
 			return
 		
-		topath = os.path.abspath(f"perfsorted/{platform}/")
+		topath = os.path.abspath(f'perfsorted/{platform}/')
 		toDir = os.path.join(topath, newfilename[0].upper())
 		tofile = os.path.join(toDir, newfilename)
 		
 		createDir(toDir)
-		found = makeFSSafe(f"{platform} >> {tofile}")
+		found = makeFSSafe(f'{platform} >> {tofile}')
 		shutil.copyfile(fromfile, tofile)
 
 def ScanPrefDir(rootDir):
@@ -195,8 +195,8 @@ def zipFilesInDir(root_dir, output_dir):
 			subdir_path = os.path.join(root, subdir)
 			files_to_zip = sorted([f for f in os.listdir(subdir_path) if os.path.isfile(os.path.join(subdir_path, f))])
 			if files_to_zip:
-				zip_file_path = os.path.join(output_dir, f"{subdir}.zip")
-				with zipfile.ZipFile(zip_file_path, "w", zipfile.ZIP_STORED) as zipf:
+				zip_file_path = os.path.join(output_dir, f'{subdir}.zip')
+				with zipfile.ZipFile(zip_file_path, 'w', zipfile.ZIP_STORED) as zipf:
 					for file in files_to_zip:
 						#print (file)
 						file_path = os.path.join(subdir_path, file)
@@ -211,8 +211,8 @@ def makeFSSafe(strFormat):
         'ç': 'c', 'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e', 'ì': 'i', 'í': 'i', 
         'î': 'i', 'ï': 'i', 'ð': 'd', 'ñ': 'n', 'ò': 'o', 'ó': 'o', 'ô': 'o', 
         'õ': 'o', 'ö': 'o', 'ø': 'o', 'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u', 
-        'ý': 'y', 'þ': 'th', 'ÿ': 'y','?': "", "/": "-", ":": "", "\r": "", 
-		"\n": "", "\t": "", "[[": "[", "]]": "]", "'": ""
+        'ý': 'y', 'þ': 'th', 'ÿ': 'y','?': '', '/': '-', ':': '', '\r': '', 
+		'\n': '', '\t': '', '[[': '[', ']]': ']', '\'': ''
 	}
 
 	for old_char, new_char in replacements.items():
@@ -259,14 +259,14 @@ def dedupeDirectory(directory):
 		if len(file_list) > 1:
 			for file_path in file_list[1:]:
 				os.remove(file_path)
-				print(f"Removed duplicate: {file_path}")
+				print(f'Removed duplicate: {file_path}')
 
 
 def handlefiles(dirname, fname, scantype):
     global platform
 
-    # Check if the file extension is ".py"; if it is, skip processing
-    if fname[-3:].upper() == ".PY":
+    # Check if the file extension is '.py'; if it is, skip processing
+    if fname[-3:].upper() == '.PY':
         return
 
     fromfile = os.path.join(dirname, fname)
@@ -275,26 +275,26 @@ def handlefiles(dirname, fname, scantype):
         hash_value = sha1value(fromfile).upper()
         newfilename = getRomInfo(hash_value)
 
-        if newfilename == "NotFound":
+        if newfilename == 'NotFound':
             # Handle case where ROM information is not found
-            if scantype == "sort" and not dirname.startswith('./notfound'):
+            if scantype == 'sort' and not dirname.startswith('./notfound'):
                 tofile = os.path.abspath('./notfound/') + f'/{hash_value}__{fname}'
-                print("NotFound: {} to {}".format(fromfile, tofile))
+                print('NotFound: {} to {}'.format(fromfile, tofile))
                 shutil.copyfile(fromfile, tofile)
                 os.remove(fromfile)
             return
 
-        if scantype == "scan":
+        if scantype == 'scan':
             # Handle scanning operation
-            topath = os.path.abspath("./perfsorted/" + platform + "/")
+            topath = os.path.abspath('./perfsorted/' + platform + '/')
             toDir = os.path.join(topath, newfilename[0].upper())
             tofile = os.path.join(toDir, newfilename)
-            print("Sorting for ZIP: {} copy to {}".format(fromfile, tofile))
-        elif scantype == "sort":
+            print('Sorting for ZIP: {} copy to {}'.format(fromfile, tofile))
+        elif scantype == 'sort':
             # Handle sorting operation
-            topath = os.path.abspath("sorted/" + platform + "/")
+            topath = os.path.abspath('sorted/' + platform + '/')
             tofile = os.path.join(topath, newfilename)
-            print("found: {} >> {}".format(fromfile, tofile))
+            print('found: {} >> {}'.format(fromfile, tofile))
 
         createDir(topath)
         shutil.copyfile(fromfile, tofile)
@@ -310,22 +310,22 @@ def ExtractArchives(rootDir):
 			ext = os.path.splitext(fname)[1].lower()
 			
 			if ext in ('.zip', '.7z'):
-				archive_type = "ZIP" if ext == ".zip" else "7Z"
+				archive_type = 'ZIP' if ext == '.zip' else '7Z'
 				extract_and_print(archiveFile, fname, archive_type)
 
 def extract_and_print(archiveFile, fname, archive_type):
-	ext_len = 4 if archive_type == "ZIP" else 3
+	ext_len = 4 if archive_type == 'ZIP' else 3
 	fullPathAndName = archiveFile[:-ext_len]
-	print(f"{archive_type} File found: {fname}")
+	print(f'{archive_type} File found: {fname}')
 	try:
-		extract_function = ExtractArchive if archive_type == "ZIP" else ExtractArchive
+		extract_function = ExtractArchive if archive_type == 'ZIP' else ExtractArchive
 		extract_function(archiveFile, fullPathAndName, archive_type)
 	except Exception as e:
-		print(f"{archiveFile} error extracting: {e}")
+		print(f'{archiveFile} error extracting: {e}')
 
 def ExtractArchive(ArchiveName, DestDir, archive_type):
 	createDir(DestDir)
-	extractor = zipfile.ZipFile if archive_type == "ZIP" else py7zr.SevenZipFile
+	extractor = zipfile.ZipFile if archive_type == 'ZIP' else py7zr.SevenZipFile
 	with extractor(ArchiveName, mode='r') as archive:
 		archive.extractall(path=DestDir)
 	deleteFile(ArchiveName)
@@ -349,9 +349,9 @@ def removeDir(dir_path):
 		
 		# Finally, remove the top-level directory itself
 		os.rmdir(dir_path)
-		print(f"Directory '{dir_path}' successfully removed.")
+		print(f'Directory \'{dir_path}\' successfully removed.')
 	except Exception as e:
-		print(f"Already removed: '{dir_path}': {e}")
+		print(f'Already removed: \'{dir_path}\': {e}')
 
 def lowercaseExtentions(directory):
 	for filename in os.listdir(directory):
@@ -377,7 +377,7 @@ def removeDualHashFileNames(directory):
 				if prefix == suffix:
 					new_name = os.path.join(root, file[42:])
 					os.rename(file_path, new_name)
-					print(f"Renamed {file_path} to {file[42:]}")
+					print(f'Renamed {file_path} to {file[42:]}')
 
 ### main ###################################
 # Set the directory you want to start from #
@@ -394,7 +394,7 @@ MSXZipOut = './perfsorted/ZIP/MSX2/'
 MSX2ZipIn = './perfsorted/MSX/'
 MSX2ZipOut = './perfsorted/ZIP/MSX/'
 
-url = "http://romdb.vampier.net/convertdb.php"
+url = 'http://romdb.vampier.net/convertdb.php'
 databasename= 'RomDB.db'
 
 # Create SQLLite3 database from URL
@@ -436,13 +436,13 @@ def CreatePrefSortedFiles():
 	zipFilesInDir(MSX2ZipIn, MSX2ZipOut)
 
 def CreateMenu():
-	print("-"*30)
-	print("RomSorter Menu")
-	print("-"*30)
-	print("[1] Scanning For New Roms")
-	print("[2] Create Prefered ZIP Files")
-	print("[3] Exit")
-	print("-"*30)
+	print('-'*30)
+	print('RomSorter Menu')
+	print('-'*30)
+	print('[1] Scanning For New Roms')
+	print('[2] Create Prefered ZIP Files')
+	print('[3] Exit')
+	print('-'*30)
 
 
 def main():
@@ -474,19 +474,19 @@ def main():
 	# Menu Loop
 	while True:
 		CreateMenu()
-		choice = input("Enter your choice: ")
-		if choice == "1":
-			print("-- Scan For New Roms")
+		choice = input('Enter your choice: ')
+		if choice == '1':
+			print('-- Scan For New Roms')
 			ScanDirForNewRoms()
-		elif choice == "2":
-			print("-- Creating Prefered ZIP Files")
+		elif choice == '2':
+			print('-- Creating Prefered ZIP Files')
 			CreatePrefSortedFiles()
-		elif choice == "3":
-			print("Exiting...")
+		elif choice == '3':
+			print('Exiting...')
 			conn.close()
 			break
 		else:
-			print("Invalid choice. Please try again.")
+			print('Invalid choice. Please try again.')
 
 
 if __name__ == "__main__":
