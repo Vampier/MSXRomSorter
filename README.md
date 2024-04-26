@@ -3,6 +3,8 @@ MSX ROM Sorter
 
 This ROM Sorter will be able to sort all known ROMs into their respective folders. The Sorter will also remove all unwanted files (see code) that are not associated with ROMs.
 
+THIS SCRIPT IS DESTRUCTIVE TO THE DATA DROPPED IN THE UNSORTED DIRECTORY 
+
 This script uses Python - Download python for free on https://www.python.org/downloads/ 
 
 Non Standard Dependencies: 
