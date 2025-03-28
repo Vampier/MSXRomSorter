@@ -1,5 +1,3 @@
-![MSXRomSorter Logo](https://via.placeholder.com/150) <!-- Replace with an actual logo if you have one -->
-
 A Python script to organize MSX and ColecoVision ROM files by SHA1 hash using the `msxromsdb.json` database from [romdb.vampier.net](https://romdb.vampier.net). Sort your ROM collection into categorized directories, handle bad dumps and confidential ROMs, and move unmatched files to a `notfound` directory for further inspection. Designed for MSX fans, this script is cross-platform, user-friendly, and robust, with comprehensive error handling to ensure a smooth experience.
 
 ## Features
@@ -22,7 +20,7 @@ A Python script to organize MSX and ColecoVision ROM files by SHA1 hash using th
 ## Directory Structure
 
 After running the script, your directory will look like this:
-
+```
 MSXRomSorter/
 ├── unsorted/                   # Place your ROM files here
 │   ├── game1.rom
@@ -41,6 +39,7 @@ MSXRomSorter/
 │       └── game2.bin
 ├── msxromsdb.json              # ROM database (downloaded automatically)
 └── rom_sorter.py               # The script
+```
 
 
 
