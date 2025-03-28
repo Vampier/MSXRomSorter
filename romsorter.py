@@ -1,494 +1,432 @@
-#!/usr/bin/env -S python3
+#!/usr/bin/env python3
 
+import json
 import os
-import sys
-import hashlib
-import sqlite3
-import unicodedata
-import re
-import zipfile
-import fnmatch
-import py7zr
 import shutil
-import requests
+import hashlib
+import sys
+import re
+import urllib.request
+import zipfile
+from datetime import datetime, timezone
+from pathlib import Path
+import argparse
+import platform
 
-# Dependencies
+VERSION = "1.0.0"
 
-# Windows: pip install py7zr
-# Debian:  apt install python3-py7zr
-
-def importSQLite3(url, databasename):
-	# Download the RomDBDump.sql file
-	response = requests.get(url)
-
-	# Check if the request was successful
-	if response.status_code == 200:
-		
-		# Delete previous database
-		deleteFile(databasename)
-
-		# Connect to SQLite3 database
-		conn = sqlite3.connect(databasename)
-		cursor = conn.cursor()
-
-		# Execute the SQL dump to create the RomDB.db database
-		sql_script = response.text
-		cursor.executescript(sql_script)
-
-		# Commit changes and close connection
-		conn.commit()
-		conn.close()
-
-		print('Database Updated.')
-	else:
-		print('Failed to create the database.')
-
-def cleanDirectory(root_dir, extentions):
-	for root, dirs, files in os.walk(root_dir):
-		# Remove files with specified extensions
-		for file in files:
-			file_path = os.path.join(root, file)
-			if file.lower().endswith(tuple(extentions)):
-				os.remove(file_path)
-				print(f'Removed file: {file_path}')
-
-		# Remove empty directories
-		for dir_name in dirs[:]:
-			dir_path = os.path.join(root, dir_name)
-			try:
-				if not os.listdir(dir_path):
-					os.rmdir(dir_path)
-					print(f'Removed empty directory: {root} - {dir_path}')
-					dirs.remove(dir_name)  # Remove directory from list to prevent further iteration
-			except Exception as e:
-				print(f'Error occurred while removing directory {dir_path}: {e}')
-
-		# Remove empty files
-		for file_name in files:
-			file_path = os.path.join(root, file_name)
-			try:
-				if os.path.getsize(file_path) == 0:
-					os.remove(file_path)
-					print(f'Removed empty file: {file_path}')
-			except Exception as e:
-				print(f'Error occurred while checking file size for {file_path}: {e}')
-
-def createDir(dirname):
-	if not os.path.exists(dirname):
-		os.makedirs(dirname)
-
-def deleteFile(filename):
-    if os.path.exists(filename):
-        os.remove(filename)
-    else:
-        print(f'Warning: File \'{filename}\' does not exist.')
-
-def getRomInfo(sha1value):
-	global platform
-
-	sql = "SELECT * FROM RomSorter WHERE sha1 = '%s'" % sha1value
-	cur.execute(sql)
-
-	row = cur.fetchone()
-
-	if row is None:
-		return 'NotFound'
-
-	GameName = makeFSSafe(row[0]) if row[0] is not None else ''
-	row3 = makeFSSafe(row[3]) if row[3] is not None else ''
-	row1 = makeFSSafe(row[1]) if row[1] is not None else ''
-	row4 = formatname(row[4]) if row[4] is not None else ''
-	Remark = formatname(row[5]) if row[5] is not None else ''
-	Meta = formatname(row[6]) if row[6] is not None else ''
-	platform = row[7] if row[7] is not None else ''
-	
-	extention = '.rom'	
-
-	if platform == 'ColecoVision':
-		extention = '.col'
-	
-	if row[9] == 'on':		
-		platform = '/Confidential/' + platform
-	
-	GameName = 'Restest-' + GameName if row[10] > 0 else GameName
-
-	fname = f'{GameName} - {row3} ({row1}) {row4} {Remark} {Meta} [{row[8]}]{extention}'
-	fname = re.sub(' +', ' ', fname)
-
-	return fname
-
-def getPrefRomInfo(sha1value):
-	global platform
-
-	sql = "SELECT GameName, Year, SHA1, IFNULL(shortname, ''), IFNULL(Remark, ''), IFNULL(Meta, ''), " \
-		  "CASE WHEN UPPER(Dump) = 'GOODMSX' THEN 'GoodMSX' " \
-		  "WHEN UPPER(Dump) = 'BAD' THEN 'BadDump' " \
-		  "WHEN UPPER(Dump) = 'AUTHOR' THEN 'original' " \
-		  "WHEN UPPER(Dump) = 'TRANSLATED' THEN 'Translated' ELSE '' END AS Dump, " \
-		  "CASE WHEN UPPER(Dump) = 'BAD' THEN 'BadDump' " \
-		  "WHEN UPPER(Dump) = 'SYSTEM' THEN 'SystemRoms' ELSE Platform END AS Platform, " \
-		  "t2.HashID AS GameID, StillForSale, t2.RomType " \
-		  "FROM msxdb_rominfo t1 " \
-		  "JOIN msxdb_romdetails t2 ON t1.GameID = t2.GameID " \
-		  "JOIN msxdb_company t3 ON t1.CompanyID1 = t3.companyid " \
-		  f"WHERE 1=1 and stillforsale!='on' and TRIM(UPPER(sha1)) = UPPER('{sha1value}') AND " \
-		  "LOWER(active) IN ('1', 'on') AND LOWER(Preferred) IN ('1', 'on') AND platform IN ('MSX', 'MSX2')"
-	
-	cur.execute(sql)
-	row = cur.fetchone()
-
-	if row is None:
-		return 'NotFound'
-
-	GameName = makeFSSafe(row[0]) if row[0] else ''
-	row3 = makeFSSafe(row[3]) if row[3] else ''
-	row1 = makeFSSafe(row[1]) if row[1] else ''
-	row4 = formatname(row[4]) if row[4] else ''
-	Remark = formatname(row[5]) if row[5] else ''
-	Meta = formatname(row[6]) if row[6] else ''
-	platform = row[7] if row[7] else ''
-	RomMapper = row[10] if row[10] else ''
-
-	extention = '.rom'
-	
-	fname = f'{GameName} - {row3} [{RomMapper}] {Remark} {Meta}{extention}'
-	fname = re.sub(' +', ' ', fname)
-
-	return fname
-
-def handlePrefFiles(dirname, fname):
-	global platform
-	
-	fromfile = os.path.join(dirname, fname)
-	if fname[-3:].upper() != '.PY':
-		hash_value = sha1value(fromfile).upper()
-		newfilename = getPrefRomInfo(hash_value)
-		
-		if newfilename == 'NotFound':
-			return
-		
-		topath = os.path.abspath(f'perfsorted/{platform}/')
-		toDir = os.path.join(topath, newfilename[0].upper())
-		tofile = os.path.join(toDir, newfilename)
-		
-		createDir(toDir)
-		found = makeFSSafe(f'{platform} >> {tofile}')
-		shutil.copyfile(fromfile, tofile)
-
-def ScanPrefDir(rootDir):
-	for dirName, subdirList, fileList in os.walk( rootDir ):
-		fileList.sort()
-		for extension in ( tuple(ROMTypes) ):
-			for filename in fnmatch.filter(fileList, extension):
-				handlePrefFiles(dirName,filename)
-
-# Zip the files from given directory that matches the filter
-def zipFilesInDir(root_dir, output_dir):
-	for root, dirs, _ in os.walk(root_dir):
-		for subdir in dirs:
-			subdir_path = os.path.join(root, subdir)
-			files_to_zip = sorted([f for f in os.listdir(subdir_path) if os.path.isfile(os.path.join(subdir_path, f))])
-			if files_to_zip:
-				zip_file_path = os.path.join(output_dir, f'{subdir}.zip')
-				with zipfile.ZipFile(zip_file_path, 'w', zipfile.ZIP_STORED) as zipf:
-					for file in files_to_zip:
-						#print (file)
-						file_path = os.path.join(subdir_path, file)
-						zipf.write(file_path, arcname=file)
-
-def makeFSSafe(strFormat):
-	strFormat = strFormat.strip()
-
-	replacements = {
-        'Ù': 'U', 'Ú': 'U', 'Û': 'U', 'Ü': 'U', 'Ý': 'Y', 'Þ': 'TH', 'ß': 'ss',
-        'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a', 'æ': 'ae', 
-        'ç': 'c', 'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e', 'ì': 'i', 'í': 'i', 
-        'î': 'i', 'ï': 'i', 'ð': 'd', 'ñ': 'n', 'ò': 'o', 'ó': 'o', 'ô': 'o', 
-        'õ': 'o', 'ö': 'o', 'ø': 'o', 'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u', 
-        'ý': 'y', 'þ': 'th', 'ÿ': 'y','?': '', '/': '-', ':': '', '\r': '', 
-		'\n': '', '\t': '', '[[': '[', ']]': ']', '\'': ''
-	}
-
-	for old_char, new_char in replacements.items():
-		strFormat = strFormat.replace(old_char, new_char)
-
-	return strFormat
-
-def formatname(strField):
-	output = strField
-	output = output.strip()
-	output = makeFSSafe(output)
-
-	if len(output.strip())==0:
-		return ''
-
-	output = ' ['+output+']'
-
-	return makeFSSafe(output)
-
-def sha1value(fname):
-	BLOCKSIZE = 65536 #64Kb
-	hasher = hashlib.sha1()
-	with open(fname, 'rb') as afile:
-		buf = afile.read(BLOCKSIZE)
-		while len(buf) > 0:
-			hasher.update(buf)
-			buf = afile.read(BLOCKSIZE)
-	afile.close()
-	return (hasher.hexdigest())
-
-def dedupeDirectory(directory):
-	hash_map = {}
-	for root, dirs, files in os.walk(directory):
-		for filename in files:
-			file_path = os.path.join(root, filename)
-			file_hash = sha1value(file_path)
-			if file_hash not in hash_map:
-				hash_map[file_hash] = [file_path]
-			else:
-				hash_map[file_hash].append(file_path)
-
-	# Remove duplicates
-	for file_list in hash_map.values():
-		if len(file_list) > 1:
-			for file_path in file_list[1:]:
-				os.remove(file_path)
-				print(f'Removed duplicate: {file_path}')
-
-
-def handlefiles(dirname, fname, scantype):
-    global platform
-
-    # Check if the file extension is '.py'; if it is, skip processing
-    if fname[-3:].upper() == '.PY':
-        return
-
-    fromfile = os.path.join(dirname, fname)
-
+# Enable long path support on Windows 10 (version 1607 and later)
+if platform.system() == "Windows":
     try:
-        hash_value = sha1value(fromfile).upper()
-        newfilename = getRomInfo(hash_value)
+        import ctypes
+        # Enable long path support by setting the registry key (requires admin rights)
+        # Alternatively, users can enable it via Group Policy or registry manually
+        kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel32.SetErrorMode(kernel32.GetErrorMode() | 0x2000)  # SEM_FAILCRITICALERRORS
+    except (ImportError, AttributeError) as e:
+        print(f"Warning: Could not enable long path support on Windows: {e}")
+        print("Paths longer than 260 characters may cause issues.")
 
-        if newfilename == 'NotFound':
-            # Handle case where ROM information is not found
-            if scantype == 'sort' and not dirname.startswith('./notfound'):
-                tofile = os.path.abspath('./notfound/') + f'/{hash_value}__{fname}'
-                print('NotFound: {} to {}'.format(fromfile, tofile))
-                shutil.copyfile(fromfile, tofile)
-                os.remove(fromfile)
-            return
+def calculateSha1(filePath):
+    """Calculate SHA1 hash of a file"""
+    try:
+        sha1Hash = hashlib.sha1()
+        with open(filePath, 'rb') as f:
+            while chunk := f.read(8192):
+                sha1Hash.update(chunk)
+        return sha1Hash.hexdigest().upper()
+    except (IOError, OSError) as e:
+        print(f"Error reading {filePath}: {e}")
+        return None
 
-        if scantype == 'scan':
-            # Handle scanning operation
-            topath = os.path.abspath('./perfsorted/' + platform + '/')
-            toDir = os.path.join(topath, newfilename[0].upper())
-            tofile = os.path.join(toDir, newfilename)
-            print('Sorting for ZIP: {} copy to {}'.format(fromfile, tofile))
-        elif scantype == 'sort':
-            # Handle sorting operation
-            topath = os.path.abspath('sorted/' + platform + '/')
-            tofile = os.path.join(topath, newfilename)
-            print('found: {} >> {}'.format(fromfile, tofile))
+def sanitizeFilename(filename):
+    """Remove invalid characters and limit length"""
+    try:
+        invalidChars = r'[<>:"/\\|?*\x00-\x1F]'
+        sanitized = re.sub(invalidChars, '-', filename)
+        sanitized = re.sub(r'-+', '-', sanitized).strip('-')
+        if not sanitized or sanitized == '.':
+            sanitized = 'unnamed'
+        return sanitized[:255]
+    except (TypeError, re.error) as e:
+        print(f"Error sanitizing filename '{filename}': {e}")
+        return "unnamed"
 
-        createDir(topath)
-        shutil.copyfile(fromfile, tofile)
-        os.remove(fromfile)
+def normalizePath(path):
+    """Normalize path for display (use forward slashes)"""
+    return str(path).replace(os.sep, '/')
 
-    except Exception as e:
-        print(e)
+def removeEmptyDirs(directory, dryRun=False):
+    """Recursively remove empty directories"""
+    try:
+        for root, dirs, files in os.walk(directory, topdown=False):
+            for dirName in dirs:
+                dirPath = os.path.join(root, dirName)
+                try:
+                    if not os.listdir(dirPath):
+                        if dryRun:
+                            print(f"[Dry Run] Would remove empty dir: {normalizePath(dirPath)}")
+                        else:
+                            os.rmdir(dirPath)
+                            print(f"Removed empty dir: {normalizePath(dirPath)}")
+                except (OSError, PermissionError) as e:
+                    print(f"Error removing {normalizePath(dirPath)}: {e}")
+    except (OSError, PermissionError) as e:
+        print(f"Error walking directory {normalizePath(directory)}: {e}")
 
-def ExtractArchives(rootDir):
-	for dirName, subdirList, fileList in os.walk(rootDir):
-		for fname in sorted(fileList):
-			archiveFile = os.path.join(dirName, fname)
-			ext = os.path.splitext(fname)[1].lower()
-			
-			if ext in ('.zip', '.7z'):
-				archive_type = 'ZIP' if ext == '.zip' else '7Z'
-				extract_and_print(archiveFile, fname, archive_type)
+def displayScriptInfo():
+    """Display script purpose and structure if unsorted dir is missing"""
+    print(f"""
+ROM Sorter Script (v{VERSION})
+==========================
+Purpose: Organize ROM files (e.g., MSX, ColecoVision) by SHA1 hash using msxromsdb.json from https://romdb.vampier.net.
+         Files from 'unsorted' are sorted into 'sorted' based on platform, bad/confidential status, or moved to 'notfound'.
 
-def extract_and_print(archiveFile, fname, archive_type):
-	ext_len = 4 if archive_type == 'ZIP' else 3
-	fullPathAndName = archiveFile[:-ext_len]
-	print(f'{archive_type} File found: {fname}')
-	try:
-		extract_function = ExtractArchive if archive_type == 'ZIP' else ExtractArchive
-		extract_function(archiveFile, fullPathAndName, archive_type)
-	except Exception as e:
-		print(f'{archiveFile} error extracting: {e}')
+Data Structure:
+- sorted/<platform>/          : Normal ROMs
+- sorted/bad/<platform>/      : Bad dumps
+- sorted/confidential/<platform>/ : Confidential ROMs
+- notfound/msx/               : Unmatched .rom files
+- notfound/col/               : Unmatched .col files
+- notfound/misc/              : Other unmatched files
+- unsorted/                   : Source for ROMs (create this and add files)
 
-def ExtractArchive(ArchiveName, DestDir, archive_type):
-	createDir(DestDir)
-	extractor = zipfile.ZipFile if archive_type == 'ZIP' else py7zr.SevenZipFile
-	with extractor(ArchiveName, mode='r') as archive:
-		archive.extractall(path=DestDir)
-	deleteFile(ArchiveName)
+Instructions: Add ROM files to 'unsorted' directory and run this script again.
+""")
+    sys.exit(0)
 
-def ScanDir(rootDir,scantype):
-	for dirName, subdirList, fileList in os.walk( rootDir ):
-		for extension in ( tuple(ROMTypes) ):
-			for filename in fnmatch.filter(fileList, extension):
-				handlefiles(dirName,filename,scantype)
+def checkAndUpdateRomdb(dryRun=False):
+    """Check and update ROM database"""
+    url = "https://romdb.vampier.net/api/get_latest.php"
+    zipFilename = "msxromsdb.zip"
+    outputDir = Path(__file__).parent
+    extractedJson = outputDir / "msxromsdb.json"
+    
+    print("Checking ROM database updates...")
+    try:
+        with urllib.request.urlopen(url) as response:
+            data = json.loads(response.read().decode('utf-8'))
+    except (urllib.error.URLError, json.JSONDecodeError) as e:
+        print(f"Error fetching or parsing ROM database: {e}")
+        return False
 
-def removeDir(dir_path):
-	try:
-		# Remove all files and subdirectories in the directory
-		for root, dirs, files in os.walk(dir_path, topdown=False):
-			for file in files:
-				file_path = os.path.join(root, file)
-				os.remove(file_path)
-			for dir_name in dirs:
-				dir_path = os.path.join(root, dir_name)
-				os.rmdir(dir_path)
-		
-		# Finally, remove the top-level directory itself
-		os.rmdir(dir_path)
-		print(f'Directory \'{dir_path}\' successfully removed.')
-	except Exception as e:
-		print(f'Already removed: \'{dir_path}\': {e}')
+    romdbEntry = next((item for item in data if item["file"] == "json-msxromsdb.zip"), None)
+    if not romdbEntry:
+        print("Error: json-msxromsdb.zip not found in API response.")
+        return False
+    
+    apiTimestamp = romdbEntry.get("last_modified", "Not available")
+    try:
+        apiDt = datetime.fromtimestamp(int(apiTimestamp), tz=timezone.utc)
+        print(f"API last modified: {apiDt.strftime('%Y-%m-%d %H:%M:%S')} UTC")
+    except (ValueError, TypeError):
+        print(f"API timestamp unparsed: {apiTimestamp}")
+        return False
+        
+    downloadUrl = romdbEntry["download_location"]
+    
+    if extractedJson.exists():
+        try:
+            with open(extractedJson, 'r', encoding='utf-8') as f:
+                jsonData = json.load(f)
+                contentTimestamp = jsonData.get("timestamp", None)
+        except (IOError, json.JSONDecodeError) as e:
+            print(f"Error reading local JSON: {e}")
+            contentTimestamp = None
+        
+        if contentTimestamp:
+            try:
+                contentDt = datetime.strptime(contentTimestamp, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                print(f"Local JSON timestamp: {contentTimestamp} UTC")
+                timeDiff = abs((apiDt - contentDt).total_seconds())
+                if timeDiff <= 5:
+                    print("Database is up-to-date (within 5s).")
+                    return True
+                else:
+                    print(f"Database outdated by {timeDiff:.2f}s. Updating...")
+            except ValueError:
+                print(f"Local timestamp unparsed: {contentTimestamp}")
+    
+    if dryRun:
+        print(f"[Dry Run] Would download and unzip {zipFilename}")
+        return True
+    
+    try:
+        urllib.request.urlretrieve(downloadUrl, zipFilename)
+        print(f"Downloaded {zipFilename}")
+        with zipfile.ZipFile(zipFilename, 'r') as zipRef:
+            zipRef.extractall(outputDir)
+        print(f"Extracted to {normalizePath(outputDir)}")
+        
+        if not extractedJson.exists():
+            print("Error: msxromsdb.json not found in zip.")
+            return False
+        
+        os.remove(zipFilename)
+        print("Cleaned up zip file.")
+        return True
+    except (urllib.error.URLError, zipfile.BadZipFile, OSError, PermissionError) as e:
+        print(f"Error downloading or extracting ROM database: {e}")
+        return False
+    finally:
+        if os.path.exists(zipFilename):
+            try:
+                os.remove(zipFilename)
+            except (OSError, PermissionError) as e:
+                print(f"Error cleaning up {zipFilename}: {e}")
 
-def lowercaseExtentions(directory):
-	for filename in os.listdir(directory):
-		filepath = os.path.join(directory, filename)
-		# Check if the item is a file
-		if os.path.isfile(filepath):
-			# Split the filename and extension
-			name, ext = os.path.splitext(filename)
-			# Convert the extension to lowercase
-			lowercase_ext = ext.lower()
-			# Rename the file with the lowercase extension
-			new_filename = name + lowercase_ext
-			if filename!=new_filename:
-				os.rename(filepath, os.path.join(directory, new_filename))
-	
-def removeDualHashFileNames(directory):
-	for root, dirs, files in os.walk(directory):
-		for file in files:
-			file_path = os.path.join(root, file)
-			if len(file) >= 82:
-				prefix = file[:40]
-				suffix = file[42:82]
-				if prefix == suffix:
-					new_name = os.path.join(root, file[42:])
-					os.rename(file_path, new_name)
-					print(f'Renamed {file_path} to {file[42:]}')
-
-### main ###################################
-# Set the directory you want to start from #
-############################################
-
-#set Directory with ROMs
-
-unsorterDir = os.path.abspath('./unsorted/')
-NotFoundDir = os.path.abspath('./notfound/')
-sortedDir= os.path.abspath('./sorted/')
-PrefSorted = os.path.abspath('./perfsorted/')
-MSXZipIn = os.path.abspath('./perfsorted/MSX2/')
-MSXZipOut = os.path.abspath('./perfsorted/ZIP/MSX2/')
-MSX2ZipIn = os.path.abspath('./perfsorted/MSX/')
-MSX2ZipOut = os.path.abspath('./perfsorted/ZIP/MSX/')
-
-url = 'http://romdb.vampier.net/convertdb.php'
-databasename= 'RomDB.db'
-
-# Define extensions to remove
-BadFiles = ['mp3','txt','dsk','mia','sys','m3u','vgz','asm','ips','xml',
-			'url','ini','ldr','txt','jpg', 'gif', 'png', 'jpeg', 'html', 
-			'dsk', 'bas', 'sc5', 'sc8', 'bat', 'obj', 'vrm', 'com', 'cfg', 
-			'mp4', 'mov', 'pdf', '32x', 'cas']
-
-# Known ROM Types 
-ROMTypes  = ['*.ms1', '*.mx2', '*.mx1', '*.bin', 
-			 '*.msx2', '*.dat', '*.gz', '*.col', 
-			 '*.eprom', '*.rom']
-
-# Create SQLLite3 database from URL
-importSQLite3(url,databasename)
-
-# Open DB connection
-conn = sqlite3.connect(databasename)
-cur = conn.cursor()
-
-# is this needed?
-platform = ''
-
-def ScanDirForNewRoms():
-	global platform
-	# Scan driectoryies for roms
-	ScanDir(unsorterDir,'sort')
-	ScanDir(NotFoundDir,'sort')
-
-	cleanDirectory(NotFoundDir, BadFiles)
-	cleanDirectory(unsorterDir, BadFiles)
-
-def CreatePrefSortedFiles():
-
-	removeDir(PrefSorted)
-
-	createDir(MSXZipIn)
-	createDir(MSX2ZipIn)
-
-	createDir(MSXZipOut)
-	createDir(MSX2ZipOut)
-
-	ScanPrefDir(sortedDir)
-
-	zipFilesInDir(MSXZipIn, MSXZipOut)
-	zipFilesInDir(MSX2ZipIn, MSX2ZipOut)
-
-def CreateMenu():
-	print('-'*30)
-	print('RomSorter Menu')
-	print('-'*30)
-	print('[1] Scanning For New Roms')
-	print('[2] Create Preferred ZIP Files')
-	print('[3] Exit')
-	print('-'*30)
-
+def copyToDestination(sha1, srcPath, romLookup, baseDir, badDir, confidentialDir, dryRun=False, stats=None):
+    """Copy file to destination based on SHA1"""
+    if sha1 not in romLookup:
+        return False
+    
+    romInfo = romLookup[sha1]
+    if romInfo['isConfidential']:
+        destDir = os.path.join(confidentialDir, romInfo['platform'])
+    elif romInfo['isBad']:
+        destDir = os.path.join(badDir, romInfo['platform'])
+    else:
+        destDir = os.path.join(baseDir, romInfo['platform'])
+    
+    destPath = os.path.join(destDir, romInfo['filename'])
+    filename = os.path.basename(srcPath)
+    
+    if dryRun:
+        print(f"[Dry Run] Would sort {filename} >> {normalizePath(destPath)}")
+        if stats:
+            stats['copied'] += 1
+        return True
+    
+    try:
+        os.makedirs(os.path.dirname(destPath), exist_ok=True)
+        shutil.copy2(srcPath, destPath)
+        return True
+    except (OSError, shutil.Error, PermissionError) as e:
+        if isinstance(e, OSError) and e.errno == 36:  # File name too long
+            print(f"Skipped {filename}: File name too long")
+            if stats:
+                stats['skipped'] += 1
+        else:
+            print(f"Error copying {filename} to {normalizePath(destPath)}: {e}")
+        return False
 
 def main():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=f"""
+ROM Sorter v{VERSION}
+=============
 
-	# Create directories if they don't exist
-	createDir(sortedDir)
-	createDir(unsorterDir)
-	createDir(NotFoundDir)
+Description:
+  Organizes ROM files (e.g., MSX, ColecoVision) by SHA1 hash using msxromsdb.json
+  from https://romdb.vampier.net. Sorts files from 'unsorted' into:
+    - 'sorted/<platform>/' (normal ROMs)
+    - 'sorted/bad/<platform>/' (bad dumps)
+    - 'sorted/confidential/<platform>/' (confidential ROMs)
+  Unmatched files go to 'notfound/<msx|col|misc>/'.
+  Creates 'unsorted' if missing and exits with instructions.
+"""
+    )
+    parser.add_argument("--dry-run", action="store_true", help="Simulate sorting without modifying files")
+    parser.add_argument("-v", "--version", action="store_true", help="Show script version")
+    args = parser.parse_args()
 
-	# Dedupe unsorted files
-	dedupeDirectory(unsorterDir)
-	dedupeDirectory(NotFoundDir)
+    if args.version:
+        print(f"ROM Sorter Version: {VERSION}")
+        sys.exit(0)
 
-	# Lower case extentions
-	lowercaseExtentions(unsorterDir)
-	lowercaseExtentions(NotFoundDir)
+    dryRun = args.dry_run
+    if dryRun:
+        print("Running in dry-run mode...")
 
-	# Extract Archives if found (run twice in case the archives contain archives)
-	ExtractArchives(unsorterDir)
-	ExtractArchives(unsorterDir)
+    # Stats for summary
+    stats = {'copied': 0, 'moved': 0, 'skipped': 0, 'removed': 0, 'duplicates': 0}
 
-	# Clean the 'notfound' and 'unsorted' directory
-	cleanDirectory(NotFoundDir, BadFiles)
-	cleanDirectory(unsorterDir, BadFiles)
+    # Define base directories
+    baseDir = 'sorted'
+    badDir = os.path.join('sorted', 'bad')
+    confidentialDir = os.path.join('sorted', 'confidential')
+    notfoundDir = 'notfound'
+    unsortedDir = 'unsorted'
 
-	# Remove dual hashes from the filename (accidentally sorted more than once)
-	removeDualHashFileNames(NotFoundDir)
+    # Check if unsorted exists
+    try:
+        if not os.path.exists(unsortedDir):
+            os.makedirs(unsortedDir, exist_ok=True)
+            displayScriptInfo()
+    except (OSError, PermissionError) as e:
+        print(f"Error creating 'unsorted' directory: {e}")
+        sys.exit(1)
 
-	# Menu Loop
-	while True:
-		CreateMenu()
-		choice = input('Enter your choice: ')
-		if choice == '1':
-			print('-- Scan For New Roms')
-			ScanDirForNewRoms()
-		elif choice == '2':
-			print('-- Creating Preferred ZIP Files')
-			CreatePrefSortedFiles()
-		elif choice == '3':
-			print('Exiting...')
-			conn.close()
-			break
-		else:
-			print('Invalid choice. Please try again.')
+    # Update database
+    if not checkAndUpdateRomdb(dryRun):
+        print("Proceeding with existing database if available.")
 
+    # Load JSON
+    jsonFile = 'msxromsdb.json'
+    if not os.path.exists(jsonFile):
+        print(f"Error: {jsonFile} not found! Please ensure the database is available.")
+        sys.exit(1)
+    try:
+        with open(jsonFile, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"Error reading or parsing {jsonFile}: {e}")
+        sys.exit(1)
+
+    # Build ROM lookup
+    romLookup = {}
+    try:
+        for rom in data['roms']:
+            platform = rom['platform']
+            for hashInfo in rom['hashes']:
+                sha1 = hashInfo['sha1']
+                filename = sanitizeFilename(hashInfo['FileName'])
+                dump = hashInfo['dump']
+                stillforsale = hashInfo.get('stillforsale')
+                romLookup[sha1] = {
+                    'filename': filename,
+                    'platform': platform,
+                    'isBad': dump == 'BadDump',
+                    'isConfidential': stillforsale == 'on',
+                    'originalFilename': hashInfo['FileName']
+                }
+    except (KeyError, TypeError) as e:
+        print(f"Error building ROM lookup from {jsonFile}: {e}")
+        sys.exit(1)
+
+    # Cache unsorted files
+    unsortedFiles = {}
+    print("\nScanning unsorted directory...")
+    try:
+        for root, _, files in os.walk(unsortedDir):
+            for file in files:
+                srcPath = os.path.join(root, file)
+                sha1 = calculateSha1(srcPath)
+                if sha1:
+                    unsortedFiles[sha1] = srcPath
+    except (OSError, PermissionError) as e:
+        print(f"Error scanning unsorted directory: {e}")
+        sys.exit(1)
+
+    # Cache notfound files
+    notfoundFiles = {}
+    print("Scanning notfound directory...")
+    try:
+        for root, _, files in os.walk(notfoundDir):
+            for file in files:
+                filepath = os.path.join(root, file)
+                sha1 = calculateSha1(filepath)
+                if sha1:
+                    notfoundFiles[sha1] = filepath
+    except (OSError, PermissionError) as e:
+        print(f"Error scanning notfound directory: {e}")
+        sys.exit(1)
+
+    # Process unsorted files
+    print("\nSorting unsorted files...")
+    for sha1, srcPath in unsortedFiles.items():
+        filename = os.path.basename(srcPath)
+        if copyToDestination(sha1, srcPath, romLookup, baseDir, badDir, confidentialDir, dryRun, stats):
+            if not dryRun:
+                try:
+                    destPath = os.path.join(
+                        confidentialDir if romLookup[sha1]['isConfidential'] else badDir if romLookup[sha1]['isBad'] else baseDir,
+                        romLookup[sha1]['platform'],
+                        romLookup[sha1]['filename']
+                    )
+                    os.remove(srcPath)
+                    print(f"Sorted: {filename} >> {normalizePath(destPath)}")
+                    stats['removed'] += 1
+                except (OSError, PermissionError) as e:
+                    print(f"Error removing {filename}: {e}")
+            else:
+                destPath = os.path.join(
+                    confidentialDir if romLookup[sha1]['isConfidential'] else badDir if romLookup[sha1]['isBad'] else baseDir,
+                    romLookup[sha1]['platform'],
+                    romLookup[sha1]['filename']
+                )
+                print(f"[Dry Run] Would sort {filename} >> {normalizePath(destPath)}")
+        else:
+            ext = os.path.splitext(srcPath)[1].lower()
+            notfoundSubdir = 'msx' if ext == '.rom' else 'col' if ext == '.col' else 'misc'
+            destFilename = filename if sha1 in filename else f"[{sha1}] - {filename}"
+            destPath = os.path.join(notfoundDir, notfoundSubdir, destFilename)
+            
+            if sha1 in notfoundFiles:
+                print(f"Skipped duplicate {filename} (SHA1: {sha1})")
+                stats['duplicates'] += 1
+                if not dryRun:
+                    try:
+                        os.remove(srcPath)
+                        stats['removed'] += 1
+                    except (OSError, PermissionError) as e:
+                        print(f"Error removing duplicate {filename}: {e}")
+            else:
+                if dryRun:
+                    print(f"[Dry Run] Would move {filename} >> {normalizePath(destPath)}")
+                    stats['moved'] += 1
+                else:
+                    try:
+                        os.makedirs(os.path.join(notfoundDir, notfoundSubdir), exist_ok=True)
+                        shutil.move(srcPath, destPath)
+                        print(f"Moved {filename} >> {normalizePath(destPath)}")
+                        notfoundFiles[sha1] = destPath
+                        stats['moved'] += 1
+                    except (OSError, shutil.Error, PermissionError) as e:
+                        if isinstance(e, OSError) and e.errno == 36:
+                            print(f"Skipped {filename}: File name too long")
+                            stats['skipped'] += 1
+                        else:
+                            print(f"Error moving {filename}: {e}")
+
+    # Check notfound for updates
+    print("\nChecking notfound for updates...")
+    try:
+        for root, _, files in os.walk(notfoundDir):
+            for file in files:
+                filepath = os.path.join(root, file)
+                sha1 = calculateSha1(filepath)
+                if sha1 and copyToDestination(sha1, filepath, romLookup, baseDir, badDir, confidentialDir, dryRun, stats):
+                    if not dryRun:
+                        try:
+                            destPath = os.path.join(
+                                confidentialDir if romLookup[sha1]['isConfidential'] else badDir if romLookup[sha1]['isBad'] else baseDir,
+                                romLookup[sha1]['platform'],
+                                romLookup[sha1]['filename']
+                            )
+                            os.remove(filepath)
+                            print(f"Sorted: {file} to {normalizePath(destPath)}")
+                            if sha1 in notfoundFiles:
+                                del notfoundFiles[sha1]
+                            stats['removed'] += 1
+                        except (OSError, PermissionError) as e:
+                            print(f"Error removing {file}: {e}")
+                    else:
+                        destPath = os.path.join(
+                            confidentialDir if romLookup[sha1]['isConfidential'] else badDir if romLookup[sha1]['isBad'] else baseDir,
+                            romLookup[sha1]['platform'],
+                            romLookup[sha1]['filename']
+                        )
+                        print(f"[Dry Run] Would sort {file} to {normalizePath(destPath)}")
+    except (OSError, PermissionError) as e:
+        print(f"Error checking notfound directory: {e}")
+
+    # Clean up empty directories
+    print("\nCleaning up empty directories...")
+    removeEmptyDirs(unsortedDir, dryRun)
+    removeEmptyDirs(baseDir, dryRun)
+
+    # Summary
+    print("\nSorting Summary:")
+    print(f"  Files sorted: {stats['copied']}")
+    print(f"  Files moved to notfound: {stats['moved']}")
+    print(f"  Files skipped (e.g., long names): {stats['skipped']}")
+    print(f"  Files removed: {stats['removed']}")
+    print(f"  Duplicates skipped: {stats['duplicates']}")
+    print("\nThank you for using ROM Sorter! Happy collecting, MSX fans!")
+    print("For updates or to report issues, visit: [your-repo-or-contact-info]")
+    sys.exit(0)
 
 if __name__ == "__main__":
-	main()
+    main()
