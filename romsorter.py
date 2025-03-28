@@ -425,7 +425,7 @@ Description:
     print(f"  Files removed: {stats['removed']}")
     print(f"  Duplicates skipped: {stats['duplicates']}")
     print("\nThank you for using ROM Sorter! Happy collecting, MSX fans!")
-    print("For updates or to report issues, visit: [your-repo-or-contact-info]")
+    print("For updates or to report issues, visit: https://github.com/Vampier/MSXRomSorter")
     sys.exit(0)
 
 if __name__ == "__main__":
