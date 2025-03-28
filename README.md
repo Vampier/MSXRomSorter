@@ -1,71 +1,47 @@
-# MSXRomSorter
-MSX ROM Sorter
+![MSXRomSorter Logo](https://via.placeholder.com/150) <!-- Replace with an actual logo if you have one -->
 
-This ROM Sorter will be able to sort all known ROMs into their respective folders. The Sorter will also remove all unwanted files (see code) that are not associated with ROMs.
+A Python script to organize MSX and ColecoVision ROM files by SHA1 hash using the `msxromsdb.json` database from [romdb.vampier.net](https://romdb.vampier.net). Sort your ROM collection into categorized directories, handle bad dumps and confidential ROMs, and move unmatched files to a `notfound` directory for further inspection. Designed for MSX fans, this script is cross-platform, user-friendly, and robust, with comprehensive error handling to ensure a smooth experience.
 
-THIS SCRIPT IS DESTRUCTIVE TO THE DATA DROPPED IN THE UNSORTED DIRECTORY 
+## Features
 
-This script uses Python - Download python for free on https://www.python.org/downloads/ 
+- **Organize ROMs**: Sorts ROM files from an `unsorted` directory into:
+  - `sorted/<platform>/` (normal ROMs)
+  - `sorted/bad/<platform>/` (bad dumps)
+  - `sorted/confidential/<platform>/` (confidential ROMs)
+- **Handle Unmatched Files**: Moves unmatched files to `notfound/<msx|col|misc>/` based on file extension:
+  - `.rom` files go to `notfound/msx/`
+  - `.col` files go to `notfound/col/`
+  - Other extensions go to `notfound/misc/`
+- **Dry Run Mode**: Test the sorting process without modifying files using `--dry-run`.
+- **Cross-Platform**: Runs on Windows, Linux, and macOS with consistent behavior.
+- **Error Handling**: Robust error handling for file operations, network requests, and database parsing, with clear error messages.
+- **User-Friendly**: Provides detailed summaries, instructions, and a help message to guide users.
+- **Automatic Database Updates**: Downloads or updates the `msxromsdb.json` database from [romdb.vampier.net](https://romdb.vampier.net) as needed.
+- **Duplicate Detection**: Identifies and skips duplicate ROMs based on SHA1 hash, removing the duplicate from `unsorted`.
 
-Non Standard Dependencies: 
-- SQLite3 https://sqlite.org/ (for SQLite3 database support)
-- py7zr `pip install py7zr` (Windows) or `apt install python3-py7zr` (Linux)
-- Requests `pip install requests`
+## Directory Structure
 
-Upon 1st run this script will create 3 directories:
-- unsorted
-- notfound
-- sorted
+After running the script, your directory will look like this:
 
-A database file is downloaded as well
+MSXRomSorter/
+├── unsorted/                   # Place your ROM files here
+│   ├── game1.rom
+│   └── game2.col
+├── sorted/                     # Sorted ROMs
+│   ├── MSX/                    # Normal MSX ROMs
+│   │   └── game1.rom
+│   ├── bad/                    # Bad dumps
+│   │   └── MSX/
+│   └── confidential/           # Confidential ROMs
+│       └── MSX/
+├── notfound/                   # Unmatched files
+│   ├── msx/                    # Unmatched .rom files
+│   ├── col/                    # Unmatched .col files
+│   └── misc/                   # Other unmatched files
+│       └── game2.bin
+├── msxromsdb.json              # ROM database (downloaded automatically)
+└── rom_sorter.py               # The script
 
-# Running the script
 
-- Windows run the script by typing `python romsorter.py`
-- Linux run with `python3 romsorter.py`
 
-If the script runs it will show this menu:
-
-```
-------------------------------
-RomSorter Menu
-------------------------------
-[1] Scanning For New Roms
-[2] Create Preferred ZIP Files
-[3] Exit
-------------------------------
-Enter your choice:
-```
-Once you see the menu above place your unsorted ROM Collection in the `unsorted` directory and pick the 1st option
-
-Depending on what files you put in there the directory that can be created looks like this:
-
-- unsorted (Place ROM collections here)
-- notfound (Resulting ROMs that aren't in the ROMDB)
-- sorted (Sort results)
-  - BadDump (known bad dumps)
-  - ColecoVision (Limited Colecovision support)
-  - Confidential (ROMs that are still for sale or never have been publicly released)
-    - BadDump
-    - MSX
-    - MSX2
-  - MSX (All known MSX1 ROMs)
-  - MSX2 (All known MSX2 ROMs)
-  - SVI (SVI ROMs)
-  - Systemroms (Known System ROMs)
-
-The files in not found have a SHA1 file has added to the front of the file - these files are not yet in the database. Files that which are not in the database can be submitted by visiting https://romdb.vampier.net/checkrom.php (bulk upload supported up to 50 files) so that I can process them
-
-# Creating Preferred zip files
-Once all files have been sorted a collection of the most relevant files can be generated for the use in sofarun or your favorite emulator.
-
-A new directory will be created:
-
-- perfsorted
-  - MSX (MSX ROMs sorted per directory)
-  - MSX2 (MSX2 ROMs sorted per directory)
-  - ZIP 
-    - MSX  (MSX ROM ZIPs sorted per starting letter)
-    - MSX2  (MSX2 ROM ZIPs sorted per per starting letter)
-   
-The ZIP files have been created with `level 0` compression - this means that the MSX can just unpack the file with minimal CPU usage and thus loading procedure times will be reduced.
+ 
