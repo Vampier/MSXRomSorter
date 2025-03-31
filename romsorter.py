@@ -13,7 +13,7 @@ from pathlib import Path
 import argparse
 import platform
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 # Enable long path support on Windows 10 (version 1607 and later)
 if platform.system() == "Windows":
@@ -424,8 +424,9 @@ Description:
     print(f"  Files skipped (e.g., long names): {stats['skipped']}")
     print(f"  Files removed: {stats['removed']}")
     print(f"  Duplicates skipped: {stats['duplicates']}")
-    print("\nThank you for using ROM Sorter! Happy collecting, MSX fans!")
-    print("For updates or to report issues, visit: https://github.com/Vampier/MSXRomSorter")
+    print("\nThank you for using ROM Sorter! Happy MSX-ing!")
+    print("\nIf you have roms you would like to add please submit them at https://romdb.vampier.net/checkrom.php");
+    print("\nFor updates or to report issues, visit: https://github.com/Vampier/MSXRomSorter")
     sys.exit(0)
 
 if __name__ == "__main__":
