@@ -422,7 +422,7 @@ Description:
     print(f"  Files sorted: {stats['copied']}")
     print(f"  Files moved to notfound: {stats['moved']}")
     print(f"  Files skipped (e.g., long names): {stats['skipped']}")
-    print(f"  Files removed: {stats['removed']}")
+    print(f"  Files sorted: {stats['removed']}")
     print(f"  Duplicates skipped: {stats['duplicates']}")
     print("\nThank you for using ROM Sorter! Happy MSX-ing!")
     print("\nIf you have roms you would like to add please submit them at https://romdb.vampier.net/checkrom.php");
