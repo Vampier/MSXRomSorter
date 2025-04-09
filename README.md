@@ -312,7 +312,7 @@ If you encounter any issues or have suggestions, please:
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the Un-License. See the [LICENSE](LICENSE) file for details.
 
 ---
 
