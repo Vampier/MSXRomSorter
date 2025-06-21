@@ -13,14 +13,12 @@ from pathlib import Path
 import argparse
 import platform
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 # Enable long path support on Windows 10 (version 1607 and later)
 if platform.system() == "Windows":
     try:
         import ctypes
-        # Enable long path support by setting the registry key (requires admin rights)
-        # Alternatively, users can enable it via Group Policy or registry manually
         kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
         kernel32.SetErrorMode(kernel32.GetErrorMode() | 0x2000)  # SEM_FAILCRITICALERRORS
     except (ImportError, AttributeError) as e:
@@ -229,6 +227,7 @@ Description:
     )
     parser.add_argument("--dry-run", action="store_true", help="Simulate sorting without modifying files")
     parser.add_argument("-v", "--version", action="store_true", help="Show script version")
+    parser.add_argument("--debug", action="store_true", help="Enable verbose debug logging")
     args = parser.parse_args()
 
     if args.version:
@@ -236,8 +235,11 @@ Description:
         sys.exit(0)
 
     dryRun = args.dry_run
+    debug = args.debug
     if dryRun:
         print("Running in dry-run mode...")
+    if debug:
+        print("Running in debug mode...")
 
     # Stats for summary
     stats = {'copied': 0, 'moved': 0, 'skipped': 0, 'removed': 0, 'duplicates': 0}
@@ -280,7 +282,7 @@ Description:
         for rom in data['roms']:
             platform = rom['platform']
             for hashInfo in rom['hashes']:
-                sha1 = hashInfo['sha1']
+                sha1 = hashInfo['sha1'].upper()  # Normalize to uppercase
                 filename = sanitizeFilename(hashInfo['FileName'])
                 dump = hashInfo['dump']
                 stillforsale = hashInfo.get('stillforsale')
@@ -291,6 +293,8 @@ Description:
                     'isConfidential': stillforsale == 'on',
                     'originalFilename': hashInfo['FileName']
                 }
+        if debug:
+            print(f"Built romLookup with {len(romLookup)} entries")
     except (KeyError, TypeError) as e:
         print(f"Error building ROM lookup from {jsonFile}: {e}")
         sys.exit(1)
@@ -305,22 +309,10 @@ Description:
                 sha1 = calculateSha1(srcPath)
                 if sha1:
                     unsortedFiles[sha1] = srcPath
+                    if debug:
+                        print(f"Cached unsorted file: {normalizePath(srcPath)} (SHA1: {sha1})")
     except (OSError, PermissionError) as e:
         print(f"Error scanning unsorted directory: {e}")
-        sys.exit(1)
-
-    # Cache notfound files
-    notfoundFiles = {}
-    print("Scanning notfound directory...")
-    try:
-        for root, _, files in os.walk(notfoundDir):
-            for file in files:
-                filepath = os.path.join(root, file)
-                sha1 = calculateSha1(filepath)
-                if sha1:
-                    notfoundFiles[sha1] = filepath
-    except (OSError, PermissionError) as e:
-        print(f"Error scanning notfound directory: {e}")
         sys.exit(1)
 
     # Process unsorted files
@@ -362,6 +354,8 @@ Description:
                         stats['removed'] += 1
                     except (OSError, PermissionError) as e:
                         print(f"Error removing duplicate {filename}: {e}")
+                else:
+                    print(f"[Dry Run] Would remove duplicate {filename}")
             else:
                 if dryRun:
                     print(f"[Dry Run] Would move {filename} >> {normalizePath(destPath)}")
@@ -371,7 +365,6 @@ Description:
                         os.makedirs(os.path.join(notfoundDir, notfoundSubdir), exist_ok=True)
                         shutil.move(srcPath, destPath)
                         print(f"Moved {filename} >> {normalizePath(destPath)}")
-                        notfoundFiles[sha1] = destPath
                         stats['moved'] += 1
                     except (OSError, shutil.Error, PermissionError) as e:
                         if isinstance(e, OSError) and e.errno == 36:
@@ -380,14 +373,39 @@ Description:
                         else:
                             print(f"Error moving {filename}: {e}")
 
-    # Check notfound for updates
-    print("\nChecking notfound for updates...")
+    # Re-cache notfound files to include files moved from unsorted
+    notfoundFiles = {}
+    if debug:
+        print("\nRe-scanning notfound directory for newly moved files...")
     try:
         for root, _, files in os.walk(notfoundDir):
             for file in files:
                 filepath = os.path.join(root, file)
                 sha1 = calculateSha1(filepath)
-                if sha1 and copyToDestination(sha1, filepath, romLookup, baseDir, badDir, confidentialDir, dryRun, stats):
+                if sha1:
+                    notfoundFiles[sha1] = filepath
+                    if debug:
+                        print(f"Cached notfound file: {normalizePath(filepath)} (SHA1: {sha1})")
+    except (OSError, PermissionError) as e:
+        print(f"Error re-scanning notfound directory: {e}")
+        sys.exit(1)
+
+    # Check notfound for updates
+    print("\nChecking notfound for updates...")
+    try:
+        for root, _, files in os.walk(notfoundDir):
+            if debug:
+                print(f"Scanning directory: {normalizePath(root)}")
+            for file in files:
+                filepath = os.path.join(root, file)
+                if debug:
+                    print(f"Processing file: {normalizePath(filepath)}")
+                sha1 = calculateSha1(filepath)
+                if not sha1:
+                    print(f"Skipped {file}: Failed to calculate SHA1")
+                    stats['skipped'] += 1
+                    continue
+                if copyToDestination(sha1, filepath, romLookup, baseDir, badDir, confidentialDir, dryRun, stats):
                     if not dryRun:
                         try:
                             destPath = os.path.join(
@@ -409,6 +427,7 @@ Description:
                             romLookup[sha1]['filename']
                         )
                         print(f"[Dry Run] Would sort {file} to {normalizePath(destPath)}")
+
     except (OSError, PermissionError) as e:
         print(f"Error checking notfound directory: {e}")
 
@@ -422,10 +441,10 @@ Description:
     print(f"  Files sorted: {stats['copied']}")
     print(f"  Files moved to notfound: {stats['moved']}")
     print(f"  Files skipped (e.g., long names): {stats['skipped']}")
-    print(f"  Files sorted: {stats['removed']}")
+    print(f"  Files removed: {stats['removed']}")
     print(f"  Duplicates skipped: {stats['duplicates']}")
     print("\nThank you for using ROM Sorter! Happy MSX-ing!")
-    print("\nIf you have roms you would like to add please submit them at https://romdb.vampier.net/checkrom.php");
+    print("\nIf you have roms you would like to add please submit them at https://romdb.vampier.net/checkrom.php")
     print("\nFor updates or to report issues, visit: https://github.com/Vampier/MSXRomSorter")
     sys.exit(0)
 
